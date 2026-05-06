@@ -1,11 +1,10 @@
-"""Fix CSV files: convert float-formatted integers (278.0 -> 278) for PostgreSQL COPY."""
+# Fix float-formatted integers in CSVs (278.0 -> 278) for PostgreSQL COPY
 
 import pandas as pd
 from pathlib import Path
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent / "data_clean"
 
-# Columns that should be integer (not float) in each CSV
 INT_COLUMNS = {
     "movies.csv": ["movie_id", "tmdb_id", "release_year", "runtime_minutes", "imdb_votes"],
     "people.csv": ["person_id", "birth_year", "death_year"],
@@ -45,7 +44,7 @@ for csv_name, int_cols in INT_COLUMNS.items():
     for col in int_cols:
         if col not in df.columns:
             continue
-        # Convert float -> nullable Int64 -> string (drops .0, keeps NaN as empty)
+        # Convert float -> nullable Int64 (drops .0 suffix, keeps NaN as empty)
         if df[col].dtype == float:
             df[col] = df[col].astype("Int64")
             changed = True

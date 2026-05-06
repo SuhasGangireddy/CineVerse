@@ -21,6 +21,7 @@ export default function Insights() {
   const handleQueryClick = async (query) => {
     const queryId = query.query_id || query.id;
 
+    // toggle off if clicking the same one
     if (activeQuery === queryId) {
       setActiveQuery(null);
       setResult(null);
@@ -60,7 +61,6 @@ export default function Insights() {
 
       {loadingQueries && <p className="text-gray-500">Loading queries...</p>}
 
-      {/* Query Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
         {queries.map((query, index) => {
           const queryId = query.query_id || query.id;
@@ -100,7 +100,6 @@ export default function Insights() {
         })}
       </div>
 
-      {/* Results Section */}
       {activeQuery != null && (
         <section className="rounded-lg overflow-hidden" style={{ background: "#1f1f1f" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#333" }}>

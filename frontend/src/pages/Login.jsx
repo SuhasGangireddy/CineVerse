@@ -42,7 +42,6 @@ export default function Login() {
 
   const handleLogin = (profileIndex) => {
     if (!users.length) return;
-    // Map demo profiles to actual DB users (use first 5)
     const dbUser = users[profileIndex];
     if (!dbUser) return;
     localStorage.setItem(
@@ -66,7 +65,6 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#141414] px-4">
       <div className="w-full max-w-lg rounded-xl bg-[#1f1f1f] p-10 shadow-2xl">
-        {/* Brand */}
         <div className="mb-8 text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-[#e50914]">
             CineVerse
@@ -96,7 +94,6 @@ export default function Login() {
               Who's watching?
             </p>
 
-            {/* Profile Cards */}
             <div className="grid grid-cols-3 gap-4 sm:grid-cols-5 mb-6">
               {DEMO_PROFILES.map((profile, i) => (
                 <button
@@ -121,7 +118,6 @@ export default function Login() {
               ))}
             </div>
 
-            {/* Sign In button */}
             <button
               onClick={() => selected !== null && handleLogin(selected)}
               disabled={selected === null}
@@ -130,14 +126,12 @@ export default function Login() {
               Sign In{selected !== null ? ` as ${DEMO_PROFILES[selected].label}` : ""}
             </button>
 
-            {/* Divider */}
             <div className="my-4 flex items-center gap-3">
               <span className="h-px flex-1 bg-gray-700" />
               <span className="text-xs uppercase tracking-wider text-gray-500">or</span>
               <span className="h-px flex-1 bg-gray-700" />
             </div>
 
-            {/* Guest */}
             <button
               onClick={handleGuest}
               className="w-full rounded-lg border border-gray-600 px-4 py-3 font-semibold text-gray-300 transition hover:border-gray-400 hover:text-white"

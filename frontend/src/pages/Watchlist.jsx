@@ -133,7 +133,6 @@ export default function Watchlist() {
                     className="flex items-center gap-4 p-4 rounded-lg transition-colors hover:brightness-110"
                     style={{ background: "#1f1f1f" }}
                   >
-                    {/* Poster placeholder */}
                     <div
                       className="shrink-0 w-14 h-20 rounded flex items-center justify-center text-xs text-gray-500"
                       style={{ background: "#2a2a2a" }}
@@ -143,7 +142,6 @@ export default function Watchlist() {
                       </svg>
                     </div>
 
-                    {/* Movie info */}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-white font-semibold text-lg truncate">{item.title}</h3>
                       <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-400">
@@ -157,7 +155,6 @@ export default function Watchlist() {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-2 shrink-0">
                       {status !== "watched" && (
                         <button

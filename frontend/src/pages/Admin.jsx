@@ -18,9 +18,8 @@ const inputStyle = { background: "#1f1f1f" };
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState(0);
-  const [message, setMessage] = useState(null); // { type: "success"|"error", text }
+  const [message, setMessage] = useState(null);
 
-  // Add Movie state
   const [movieForm, setMovieForm] = useState({
     title: "",
     imdb_id: "",
@@ -30,7 +29,6 @@ export default function Admin() {
     plot: "",
   });
 
-  // Submit Rating state
   const [users, setUsers] = useState([]);
   const [ratingForm, setRatingForm] = useState({
     user_id: "",
@@ -38,7 +36,6 @@ export default function Admin() {
     rating: 5,
   });
 
-  // Update Availability state
   const [platforms, setPlatforms] = useState([]);
   const [availForm, setAvailForm] = useState({
     movie_id: "",
@@ -64,7 +61,6 @@ export default function Admin() {
     setTimeout(() => setMessage(null), 4000);
   };
 
-  // --- Add Movie ---
   const handleAddMovie = async (e) => {
     e.preventDefault();
     try {
@@ -89,7 +85,6 @@ export default function Admin() {
     }
   };
 
-  // --- Submit Rating ---
   const handleSubmitRating = async (e) => {
     e.preventDefault();
     try {
@@ -114,7 +109,6 @@ export default function Admin() {
     }
   };
 
-  // --- Update Availability ---
   const handleUpdateAvailability = async (e) => {
     e.preventDefault();
     try {
@@ -144,7 +138,6 @@ export default function Admin() {
     <div className="min-h-screen px-6 py-10 max-w-4xl mx-auto" style={{ background: "#141414" }}>
       <h1 className="text-4xl font-bold text-white mb-8">Admin Panel</h1>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b" style={{ borderColor: "#333" }}>
         {TABS.map((tab, idx) => (
           <button
@@ -162,7 +155,6 @@ export default function Admin() {
         ))}
       </div>
 
-      {/* Status Message */}
       {message && (
         <div
           className="mb-6 px-4 py-3 rounded-lg text-sm font-medium"
@@ -175,7 +167,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Add Movie Tab */}
       {activeTab === 0 && (
         <form onSubmit={handleAddMovie} className="p-6 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-5" style={{ background: "#1f1f1f" }}>
           <FormField label="Title *">
@@ -264,7 +255,6 @@ export default function Admin() {
         </form>
       )}
 
-      {/* Submit Rating Tab */}
       {activeTab === 1 && (
         <form onSubmit={handleSubmitRating} className="p-6 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-5" style={{ background: "#1f1f1f" }}>
           <FormField label="User *">
@@ -334,7 +324,6 @@ export default function Admin() {
         </form>
       )}
 
-      {/* Update Availability Tab */}
       {activeTab === 2 && (
         <form onSubmit={handleUpdateAvailability} className="p-6 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-5" style={{ background: "#1f1f1f" }}>
           <FormField label="Movie ID *">

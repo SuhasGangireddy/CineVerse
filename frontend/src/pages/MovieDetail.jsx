@@ -15,8 +15,6 @@ function getUser() {
   }
 }
 
-/* ---------- Small helper components ---------- */
-
 function GenreChip({ name }) {
   return (
     <span className="rounded-full border border-gray-600 px-3 py-1 text-xs text-gray-300">
@@ -47,8 +45,6 @@ function SectionTitle({ children }) {
   );
 }
 
-/* ---------- Main Component ---------- */
-
 export default function MovieDetail() {
   const { id } = useParams();
 
@@ -57,14 +53,12 @@ export default function MovieDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Rating form
   const [showRatingForm, setShowRatingForm] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingMsg, setRatingMsg] = useState(null);
 
-  // Watchlist
   const [watchlistMsg, setWatchlistMsg] = useState(null);
 
   useEffect(() => {
@@ -87,8 +81,6 @@ export default function MovieDetail() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
-
-  /* ---- Actions ---- */
 
   const handleAddWatchlist = async () => {
     const user = getUser();
@@ -140,7 +132,7 @@ export default function MovieDetail() {
       }
       setRatingMsg("Rating submitted!");
       setShowRatingForm(false);
-      // Refresh movie data to show new review
+      // refresh to show updated data
       const updated = await fetch(`/api/movies/${id}`);
       if (updated.ok) setMovie(await updated.json());
     } catch (err) {
@@ -149,8 +141,6 @@ export default function MovieDetail() {
       setRatingSubmitting(false);
     }
   };
-
-  /* ---- Render states ---- */
 
   if (loading) {
     return (
@@ -174,7 +164,6 @@ export default function MovieDetail() {
     );
   }
 
-  /* Group cast/crew by role */
   const crewByRole = {};
   (movie.cast_crew ?? movie.castCrew ?? []).forEach((person) => {
     const role = person.role ?? "Other";
@@ -189,9 +178,7 @@ export default function MovieDetail() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* ========== HERO ========== */}
       <section className="mb-10 flex flex-col gap-8 md:flex-row">
-        {/* Poster placeholder */}
         <div className="flex h-80 w-56 flex-shrink-0 items-center justify-center self-start rounded-xl bg-[#2b2b2b] shadow-lg">
           {movie.poster_url ? (
             <img
@@ -216,7 +203,6 @@ export default function MovieDetail() {
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1">
           <h1 className="mb-2 text-4xl font-bold text-white">{movie.title}</h1>
 
@@ -227,7 +213,6 @@ export default function MovieDetail() {
             <ImdbBadge rating={movie.imdb_rating} />
           </div>
 
-          {/* Genres */}
           {(movie.genres ?? []).length > 0 && (
             <div className="mb-6 flex flex-wrap gap-2">
               {movie.genres.map((g) => (
@@ -236,7 +221,6 @@ export default function MovieDetail() {
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleAddWatchlist}
@@ -262,7 +246,6 @@ export default function MovieDetail() {
             <p className="mt-2 text-sm text-gray-400">{ratingMsg}</p>
           )}
 
-          {/* Inline rating form */}
           {showRatingForm && (
             <form
               onSubmit={handleSubmitRating}
@@ -313,7 +296,6 @@ export default function MovieDetail() {
         </div>
       </section>
 
-      {/* ========== PLOT ========== */}
       {movie.plot && (
         <section className="mb-10">
           <SectionTitle>Plot</SectionTitle>
@@ -321,7 +303,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== CAST & CREW ========== */}
       {sortedRoles.length > 0 && (
         <section className="mb-10">
           <SectionTitle>Cast &amp; Crew</SectionTitle>
@@ -349,7 +330,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== STREAMING AVAILABILITY ========== */}
       {(movie.streaming ?? movie.platforms ?? []).length > 0 && (
         <section className="mb-10">
           <SectionTitle>Streaming Availability</SectionTitle>
@@ -385,7 +365,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== AWARDS ========== */}
       {(movie.awards ?? []).length > 0 && (
         <section className="mb-10">
           <SectionTitle>Awards</SectionTitle>
@@ -431,7 +410,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== MOOD TAGS ========== */}
       {(movie.mood_tags ?? movie.tags ?? []).length > 0 && (
         <section className="mb-10">
           <SectionTitle>Mood Tags</SectionTitle>
@@ -443,7 +421,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== REVIEWS ========== */}
       {(movie.reviews ?? []).length > 0 && (
         <section className="mb-10">
           <SectionTitle>Reviews</SectionTitle>
@@ -489,7 +466,6 @@ export default function MovieDetail() {
         </section>
       )}
 
-      {/* ========== SIMILAR MOVIES ========== */}
       {similar.length > 0 && (
         <section className="mb-10">
           <SectionTitle>Similar Movies</SectionTitle>

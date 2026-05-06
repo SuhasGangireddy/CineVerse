@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import MovieCard from "../components/MovieCard";
 
 export default function Search() {
-  // Search / filter state
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("");
   const [yearFrom, setYearFrom] = useState("");
@@ -10,17 +9,14 @@ export default function Search() {
   const [minRating, setMinRating] = useState(0);
   const [platform, setPlatform] = useState("");
 
-  // Options for dropdowns
   const [genres, setGenres] = useState([]);
   const [platforms, setPlatforms] = useState([]);
 
-  // Results
   const [results, setResults] = useState([]);
   const [resultCount, setResultCount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // Fetch filter options on mount
   useEffect(() => {
     fetch("/api/genres")
       .then((r) => (r.ok ? r.json() : []))
@@ -82,7 +78,6 @@ export default function Search() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Search Bar */}
       <form onSubmit={handleSubmit} className="mb-6">
         <div className="flex gap-3">
           <input
@@ -101,9 +96,7 @@ export default function Search() {
         </div>
       </form>
 
-      {/* Filters Row */}
       <div className="mb-8 flex flex-wrap items-end gap-4 rounded-xl bg-[#1f1f1f] p-5">
-        {/* Genre */}
         <div className="min-w-[160px] flex-1">
           <label className="mb-1 block text-xs font-medium text-gray-400">
             Genre
@@ -122,7 +115,6 @@ export default function Search() {
           </select>
         </div>
 
-        {/* Year Range */}
         <div className="flex items-end gap-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-400">
@@ -155,7 +147,6 @@ export default function Search() {
           </div>
         </div>
 
-        {/* Min Rating */}
         <div className="min-w-[160px]">
           <label className="mb-1 block text-xs font-medium text-gray-400">
             Min Rating: {minRating > 0 ? minRating.toFixed(1) : "Any"}
@@ -171,7 +162,6 @@ export default function Search() {
           />
         </div>
 
-        {/* Platform */}
         <div className="min-w-[160px] flex-1">
           <label className="mb-1 block text-xs font-medium text-gray-400">
             Platform
@@ -193,7 +183,6 @@ export default function Search() {
           </select>
         </div>
 
-        {/* Reset */}
         <button
           onClick={handleReset}
           type="button"
@@ -203,21 +192,18 @@ export default function Search() {
         </button>
       </div>
 
-      {/* Result count */}
       {searched && resultCount !== null && (
         <p className="mb-4 text-sm text-gray-400">
           {resultCount} {resultCount === 1 ? "result" : "results"} found
         </p>
       )}
 
-      {/* Loading */}
       {loading && (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-600 border-t-[#e50914]" />
         </div>
       )}
 
-      {/* Results Grid */}
       {!loading && results.length > 0 && (
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {results.map((movie) => (
@@ -226,7 +212,6 @@ export default function Search() {
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && searched && results.length === 0 && (
         <div className="py-20 text-center">
           <p className="text-lg text-gray-500">

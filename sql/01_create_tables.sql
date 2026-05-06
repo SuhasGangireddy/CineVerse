@@ -1,6 +1,6 @@
--- CineVerse: An IMDb/Netflix-Inspired Movie Database System
+-- schema for movie_db
 
--- Drop tables if they exist
+-- drop tables if they exist
 DROP TABLE IF EXISTS WatchPartySuggestion CASCADE;
 DROP TABLE IF EXISTS WatchPartyMember CASCADE;
 DROP TABLE IF EXISTS WatchParty CASCADE;
@@ -29,9 +29,7 @@ DROP TABLE IF EXISTS MovieDistributor CASCADE;
 DROP TABLE IF EXISTS Distributor CASCADE;
 DROP TABLE IF EXISTS Movie CASCADE;
 
--- CORE TABLES
-
--- 1. Movie
+-- movies
 CREATE TABLE Movie (
     movie_id        SERIAL PRIMARY KEY,
     imdb_id         VARCHAR(20) UNIQUE NOT NULL,
@@ -52,7 +50,7 @@ CREATE TABLE Movie (
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Person
+-- people (actors, directors, etc)
 CREATE TABLE Person (
     person_id          SERIAL PRIMARY KEY,
     imdb_person_id     VARCHAR(20) UNIQUE,
@@ -63,13 +61,13 @@ CREATE TABLE Person (
     CONSTRAINT chk_person_years CHECK (death_year IS NULL OR death_year >= birth_year)
 );
 
--- 3. RoleType
+-- role types
 CREATE TABLE RoleType (
     role_type_id SERIAL PRIMARY KEY,
     role_name    VARCHAR(50) UNIQUE NOT NULL
 );
 
--- 4. MovieCredit
+-- movie credits (links people to movies with roles)
 CREATE TABLE MovieCredit (
     credit_id      SERIAL PRIMARY KEY,
     movie_id       INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
@@ -80,20 +78,19 @@ CREATE TABLE MovieCredit (
     CONSTRAINT uq_movie_person_role_char UNIQUE (movie_id, person_id, role_type_id, character_name)
 );
 
--- 5. Genre
+-- genres
 CREATE TABLE Genre (
     genre_id   SERIAL PRIMARY KEY,
     genre_name VARCHAR(50) UNIQUE NOT NULL
 );
 
--- 6. MovieGenre
 CREATE TABLE MovieGenre (
     movie_id INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     genre_id INTEGER NOT NULL REFERENCES Genre(genre_id) ON DELETE CASCADE,
     PRIMARY KEY (movie_id, genre_id)
 );
 
--- 7. Distributor
+-- distributors
 CREATE TABLE Distributor (
     distributor_id SERIAL PRIMARY KEY,
     name           VARCHAR(255) NOT NULL,
@@ -101,7 +98,6 @@ CREATE TABLE Distributor (
     country        VARCHAR(100)
 );
 
--- 8. MovieDistributor
 CREATE TABLE MovieDistributor (
     movie_id       INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     distributor_id INTEGER NOT NULL REFERENCES Distributor(distributor_id) ON DELETE CASCADE,
@@ -109,9 +105,7 @@ CREATE TABLE MovieDistributor (
     PRIMARY KEY (movie_id, distributor_id, region)
 );
 
--- USER, RATING, AND REVIEW TABLES
-
--- 9. UserProfile
+-- users
 CREATE TABLE UserProfile (
     user_id            SERIAL PRIMARY KEY,
     username           VARCHAR(100) UNIQUE NOT NULL,
@@ -121,7 +115,7 @@ CREATE TABLE UserProfile (
     created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 10. UserRating
+-- user ratings
 CREATE TABLE UserRating (
     user_id     INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
     movie_id    INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
@@ -130,7 +124,7 @@ CREATE TABLE UserRating (
     PRIMARY KEY (user_id, movie_id)
 );
 
--- 11. Review
+-- reviews
 CREATE TABLE Review (
     review_id   SERIAL PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
@@ -141,7 +135,7 @@ CREATE TABLE Review (
     CONSTRAINT uq_user_movie_review UNIQUE (user_id, movie_id)
 );
 
--- 12. ExternalRating
+-- external ratings (rotten tomatoes, metacritic, etc)
 CREATE TABLE ExternalRating (
     movie_id    INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     source_name VARCHAR(100) NOT NULL,
@@ -151,15 +145,12 @@ CREATE TABLE ExternalRating (
     PRIMARY KEY (movie_id, source_name)
 );
 
--- RECOMMENDATION AND MOOD TABLES
-
--- 13. Tag
+-- tags (for mood/theme tagging)
 CREATE TABLE Tag (
     tag_id   SERIAL PRIMARY KEY,
     tag_name VARCHAR(100) UNIQUE NOT NULL
 );
 
--- 14. MovieTagRelevance
 CREATE TABLE MovieTagRelevance (
     movie_id        INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     tag_id          INTEGER NOT NULL REFERENCES Tag(tag_id) ON DELETE CASCADE,
@@ -167,7 +158,6 @@ CREATE TABLE MovieTagRelevance (
     PRIMARY KEY (movie_id, tag_id)
 );
 
--- 15. UserPreferenceTag
 CREATE TABLE UserPreferenceTag (
     user_id           INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
     tag_id            INTEGER NOT NULL REFERENCES Tag(tag_id) ON DELETE CASCADE,
@@ -175,7 +165,6 @@ CREATE TABLE UserPreferenceTag (
     PRIMARY KEY (user_id, tag_id)
 );
 
--- 16. RecommendationLog
 CREATE TABLE RecommendationLog (
     recommendation_id SERIAL PRIMARY KEY,
     user_id           INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
@@ -185,9 +174,7 @@ CREATE TABLE RecommendationLog (
     generated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- STREAMING AVAILABILITY TABLES
-
--- 17. StreamingPlatform
+-- streaming platforms
 CREATE TABLE StreamingPlatform (
     platform_id SERIAL PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
@@ -196,7 +183,6 @@ CREATE TABLE StreamingPlatform (
     CONSTRAINT uq_platform_country UNIQUE (name, country)
 );
 
--- 18. MovieAvailability
 CREATE TABLE MovieAvailability (
     movie_id    INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     platform_id INTEGER NOT NULL REFERENCES StreamingPlatform(platform_id) ON DELETE CASCADE,
@@ -207,9 +193,7 @@ CREATE TABLE MovieAvailability (
     PRIMARY KEY (movie_id, platform_id, region, access_type)
 );
 
--- AWARDS TABLES
-
--- 19. Award
+-- awards
 CREATE TABLE Award (
     award_id   SERIAL PRIMARY KEY,
     award_name VARCHAR(255) NOT NULL,
@@ -217,7 +201,6 @@ CREATE TABLE Award (
     CONSTRAINT uq_award_category UNIQUE (award_name, category)
 );
 
--- 20. MovieAward
 CREATE TABLE MovieAward (
     movie_award_id SERIAL PRIMARY KEY,
     movie_id       INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
@@ -228,9 +211,7 @@ CREATE TABLE MovieAward (
     CONSTRAINT uq_movie_award_year UNIQUE (movie_id, award_id, award_year)
 );
 
--- PRODUCTION COMPANY TABLES
-
--- 21. ProductionCompany
+-- production companies
 CREATE TABLE ProductionCompany (
     company_id SERIAL PRIMARY KEY,
     name       VARCHAR(255) NOT NULL,
@@ -238,16 +219,13 @@ CREATE TABLE ProductionCompany (
     founded_year INTEGER
 );
 
--- 22. MovieProductionCompany
 CREATE TABLE MovieProductionCompany (
     movie_id   INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
     company_id INTEGER NOT NULL REFERENCES ProductionCompany(company_id) ON DELETE CASCADE,
     PRIMARY KEY (movie_id, company_id)
 );
 
--- WATCHLIST TABLES
-
--- 23. Watchlist
+-- watchlists
 CREATE TABLE Watchlist (
     watchlist_id SERIAL PRIMARY KEY,
     user_id      INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
@@ -256,7 +234,6 @@ CREATE TABLE Watchlist (
     CONSTRAINT uq_user_watchlist_name UNIQUE (user_id, name)
 );
 
--- 24. WatchlistItem
 CREATE TABLE WatchlistItem (
     watchlist_id    INTEGER NOT NULL REFERENCES Watchlist(watchlist_id) ON DELETE CASCADE,
     movie_id        INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,
@@ -265,9 +242,7 @@ CREATE TABLE WatchlistItem (
     PRIMARY KEY (watchlist_id, movie_id)
 );
 
--- GROUP WATCH / WATCH PARTY TABLES
-
--- 25. WatchParty
+-- watch parties
 CREATE TABLE WatchParty (
     party_id     SERIAL PRIMARY KEY,
     host_user_id INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
@@ -276,14 +251,12 @@ CREATE TABLE WatchParty (
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 26. WatchPartyMember
 CREATE TABLE WatchPartyMember (
     party_id INTEGER NOT NULL REFERENCES WatchParty(party_id) ON DELETE CASCADE,
     user_id  INTEGER NOT NULL REFERENCES UserProfile(user_id) ON DELETE CASCADE,
     PRIMARY KEY (party_id, user_id)
 );
 
--- 27. WatchPartySuggestion
 CREATE TABLE WatchPartySuggestion (
     party_id    INTEGER NOT NULL REFERENCES WatchParty(party_id) ON DELETE CASCADE,
     movie_id    INTEGER NOT NULL REFERENCES Movie(movie_id) ON DELETE CASCADE,

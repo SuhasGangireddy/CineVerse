@@ -1,5 +1,3 @@
-"""CineVerse FastAPI Backend — REST API for the React frontend."""
-
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,8 +14,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ── Pydantic Models ──────────────────────────────────────────────────────────
 
 class RatingInput(BaseModel):
     user_id: int
@@ -52,14 +48,14 @@ class AvailabilityInput(BaseModel):
     access_type: str = "subscription"
 
 
-# ── User Endpoints ───────────────────────────────────────────────────────────
+# users
 
 @app.get("/api/users")
 def list_users():
     return db.get_users()
 
 
-# ── Dashboard Endpoints ──────────────────────────────────────────────────────
+# dashboard
 
 @app.get("/api/stats")
 def dashboard_stats():
@@ -78,7 +74,7 @@ def recent_movies(limit: int = 15):
     return db.get_recently_released(limit)
 
 
-# ── Search ───────────────────────────────────────────────────────────────────
+# search
 
 @app.get("/api/movies/search")
 def search_movies(
@@ -100,7 +96,7 @@ def search_movies(
     )
 
 
-# ── Movie Detail ─────────────────────────────────────────────────────────────
+# movie detail
 
 @app.get("/api/movies/{movie_id}")
 def movie_details(movie_id: int):
@@ -114,7 +110,7 @@ def similar_movies(movie_id: int, limit: int = 8):
     return db.get_similar_movies(movie_id, limit)
 
 
-# ── Genres & Platforms & Tags ────────────────────────────────────────────────
+# genres, platforms, tags
 
 @app.get("/api/genres")
 def list_genres():
@@ -129,7 +125,7 @@ def list_tags():
     return db.get_tags()
 
 
-# ── Recommendations ──────────────────────────────────────────────────────────
+# recommendations
 
 @app.get("/api/recommendations/{user_id}")
 def recommendations(
@@ -144,7 +140,7 @@ def recommendations(
                                    min_rating=min_rating, limit=limit)
 
 
-# ── Watchlist ────────────────────────────────────────────────────────────────
+# watchlist
 
 @app.get("/api/watchlist/{user_id}")
 def user_watchlist(user_id: int):
@@ -166,7 +162,7 @@ def remove_watchlist(watchlist_id: int, movie_id: int):
     return {"status": "removed"}
 
 
-# ── Ratings & Reviews ────────────────────────────────────────────────────────
+# ratings & reviews
 
 @app.post("/api/ratings")
 def rate_movie(data: RatingInput):
@@ -179,7 +175,7 @@ def review_movie(data: ReviewInput):
     return {"status": "reviewed"}
 
 
-# ── Group Watch ──────────────────────────────────────────────────────────────
+# group watch
 
 @app.get("/api/group-watch/parties")
 def watch_parties():
@@ -190,7 +186,7 @@ def group_recommendation(party_id: int, limit: int = 10):
     return db.get_group_recommendation(party_id, limit)
 
 
-# ── Insights (10 Complex Queries) ───────────────────────────────────────────
+# insights
 
 @app.get("/api/insights")
 def list_insights():
@@ -207,7 +203,7 @@ def run_insight(query_id: int):
     return result
 
 
-# ── Admin ────────────────────────────────────────────────────────────────────
+# admin
 
 @app.post("/api/admin/movies")
 def add_movie(data: MovieInput):

@@ -1,5 +1,3 @@
-"""Database connection and query functions for CineVerse FastAPI backend."""
-
 import os
 from pathlib import Path
 import psycopg2
@@ -7,7 +5,6 @@ import psycopg2.extras
 from decimal import Decimal
 from datetime import date, datetime
 
-# Load .env from project root if present
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 if _env_path.exists():
     for line in _env_path.read_text().splitlines():
@@ -28,7 +25,6 @@ def get_connection():
 
 
 def _serialize(rows):
-    """Convert psycopg2 RealDictRow to JSON-safe dicts."""
     result = []
     for row in rows:
         d = {}
@@ -74,8 +70,6 @@ def execute_returning(sql, params=None):
     finally:
         conn.close()
 
-
-# ── Query Functions ──────────────────────────────────────────────────────────
 
 def get_users():
     return query("SELECT user_id, username, email, age_group FROM UserProfile ORDER BY user_id LIMIT 50")
@@ -298,7 +292,7 @@ def get_recommendations(user_id, tags=None, platform=None, min_rating=None, limi
     if tags:
         tag_placeholders = ",".join(["%s"] * len(tags))
         base_tag_filter = f"t.tag_name IN ({tag_placeholders})"
-        params = [user_id]  # only need user_id for the LEFT JOIN
+        params = [user_id]
         params.extend(tags)
 
     if platform:
@@ -354,7 +348,6 @@ def get_user_watchlist(user_id):
 
 
 def add_to_watchlist(user_id, movie_id):
-    # Get or create default watchlist
     wl = query("SELECT watchlist_id FROM Watchlist WHERE user_id = %s LIMIT 1", [user_id])
     if not wl:
         wl = execute_returning(
@@ -431,195 +424,32 @@ def get_group_recommendation(party_id, limit=10):
     """, [party_id, limit])
 
 
-# ── Insight Queries (the 10 complex queries) ─────────────────────────────────
+QUERIES_DIR = Path(__file__).resolve().parent.parent / "sql" / "queries"
 
 INSIGHT_QUERIES = {
-    1: {
-        "title": "Top-Rated Movies by Genre",
-        "description": "Highest-rated movies within each genre with minimum 5 user ratings",
-        "sql": """
-            SELECT g.genre_name, m.title, m.release_year,
-                   ROUND(AVG(ur.rating), 2) AS avg_user_rating,
-                   COUNT(ur.user_id) AS num_ratings,
-                   RANK() OVER (PARTITION BY g.genre_name ORDER BY AVG(ur.rating) DESC) AS genre_rank
-            FROM Movie m
-            JOIN MovieGenre mg ON mg.movie_id = m.movie_id
-            JOIN Genre g ON g.genre_id = mg.genre_id
-            JOIN UserRating ur ON ur.movie_id = m.movie_id
-            GROUP BY g.genre_name, m.movie_id, m.title, m.release_year
-            HAVING COUNT(ur.user_id) >= 5
-            ORDER BY g.genre_name, genre_rank
-            LIMIT 50
-        """
-    },
-    2: {
-        "title": "Actor-Director Collaborations",
-        "description": "Most frequent actor-director partnerships across multiple films",
-        "sql": """
-            SELECT p_actor.name AS actor_name, p_director.name AS director_name,
-                   COUNT(DISTINCT m.movie_id) AS movies_together,
-                   STRING_AGG(DISTINCT m.title, '; ' ORDER BY m.title) AS shared_movies
-            FROM MovieCredit mc_actor
-            JOIN RoleType rt_actor ON rt_actor.role_type_id = mc_actor.role_type_id AND rt_actor.role_name = 'Actor'
-            JOIN Person p_actor ON p_actor.person_id = mc_actor.person_id
-            JOIN MovieCredit mc_director ON mc_director.movie_id = mc_actor.movie_id
-            JOIN RoleType rt_director ON rt_director.role_type_id = mc_director.role_type_id AND rt_director.role_name = 'Director'
-            JOIN Person p_director ON p_director.person_id = mc_director.person_id
-            JOIN Movie m ON m.movie_id = mc_actor.movie_id
-            GROUP BY p_actor.name, p_director.name
-            HAVING COUNT(DISTINCT m.movie_id) >= 2
-            ORDER BY movies_together DESC, actor_name LIMIT 30
-        """
-    },
-    3: {
-        "title": "Audience vs Critic Score Gap",
-        "description": "Movies where user ratings significantly differ from IMDb critic scores",
-        "sql": """
-            SELECT m.title, m.release_year, ROUND(AVG(ur.rating), 2) AS avg_user_rating,
-                   er.score AS imdb_score,
-                   ROUND(AVG(ur.rating) - er.score, 2) AS gap,
-                   CASE WHEN AVG(ur.rating) - er.score > 1.0 THEN 'Audience Favorite'
-                        WHEN er.score - AVG(ur.rating) > 1.0 THEN 'Critic Favorite'
-                        ELSE 'Consensus' END AS category
-            FROM Movie m
-            JOIN UserRating ur ON ur.movie_id = m.movie_id
-            JOIN ExternalRating er ON er.movie_id = m.movie_id AND er.source_name = 'IMDb'
-            GROUP BY m.movie_id, m.title, m.release_year, er.score
-            HAVING COUNT(ur.user_id) >= 3
-            ORDER BY ABS(AVG(ur.rating) - er.score) DESC LIMIT 25
-        """
-    },
-    4: {
-        "title": "Mood-Based Recommendations",
-        "description": "Explainable recommendations based on tag matching for user 1",
-        "sql": """
-            SELECT m.movie_id, m.title, m.release_year, m.imdb_rating,
-                   ROUND(SUM(mtr.relevance_score), 3) AS recommendation_score,
-                   STRING_AGG(DISTINCT t.tag_name, ', ' ORDER BY t.tag_name) AS matching_tags
-            FROM MovieTagRelevance mtr
-            JOIN Tag t ON t.tag_id = mtr.tag_id
-            JOIN Movie m ON m.movie_id = mtr.movie_id
-            LEFT JOIN UserRating ur ON ur.movie_id = m.movie_id AND ur.user_id = 1
-            WHERE mtr.relevance_score >= 0.5 AND ur.user_id IS NULL
-              AND t.tag_name IN (
-                  SELECT DISTINCT t2.tag_name FROM UserRating ur2
-                  JOIN MovieTagRelevance mtr2 ON mtr2.movie_id = ur2.movie_id
-                  JOIN Tag t2 ON t2.tag_id = mtr2.tag_id
-                  WHERE ur2.user_id = 1 AND ur2.rating >= 8.0 AND mtr2.relevance_score >= 0.6)
-            GROUP BY m.movie_id, m.title, m.release_year, m.imdb_rating
-            ORDER BY recommendation_score DESC LIMIT 15
-        """
-    },
-    5: {
-        "title": "Hidden Gems",
-        "description": "Highly rated movies with relatively few total votes",
-        "sql": """
-            SELECT m.title, m.release_year, ROUND(AVG(ur.rating), 2) AS avg_user_rating,
-                   COUNT(ur.user_id) AS num_ratings, m.imdb_votes, m.imdb_rating
-            FROM Movie m JOIN UserRating ur ON ur.movie_id = m.movie_id
-            WHERE m.imdb_votes < (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY imdb_votes) FROM Movie)
-            GROUP BY m.movie_id, m.title, m.release_year, m.imdb_votes, m.imdb_rating
-            HAVING COUNT(ur.user_id) >= 3 AND AVG(ur.rating) >= 7.5
-            ORDER BY avg_user_rating DESC LIMIT 20
-        """
-    },
-    6: {
-        "title": "Most Versatile Actors",
-        "description": "Actors with the widest genre range across their filmography",
-        "sql": """
-            SELECT p.name AS actor_name, COUNT(DISTINCT g.genre_id) AS genre_count,
-                   STRING_AGG(DISTINCT g.genre_name, ', ' ORDER BY g.genre_name) AS genres,
-                   COUNT(DISTINCT mc.movie_id) AS total_movies
-            FROM Person p
-            JOIN MovieCredit mc ON mc.person_id = p.person_id
-            JOIN RoleType rt ON rt.role_type_id = mc.role_type_id AND rt.role_name = 'Actor'
-            JOIN MovieGenre mg ON mg.movie_id = mc.movie_id
-            JOIN Genre g ON g.genre_id = mg.genre_id
-            GROUP BY p.person_id, p.name
-            HAVING COUNT(DISTINCT mc.movie_id) >= 3
-            ORDER BY genre_count DESC, total_movies DESC LIMIT 20
-        """
-    },
-    7: {
-        "title": "Most Profitable Directors",
-        "description": "Directors ranked by total profit and ROI of their films",
-        "sql": """
-            SELECT p.name AS director_name, COUNT(DISTINCT m.movie_id) AS num_films,
-                   ROUND(SUM(m.revenue)::NUMERIC / 1000000, 1) AS revenue_M,
-                   ROUND(SUM(m.budget)::NUMERIC / 1000000, 1) AS budget_M,
-                   ROUND((SUM(m.revenue) - SUM(m.budget))::NUMERIC / 1000000, 1) AS profit_M
-            FROM Person p
-            JOIN MovieCredit mc ON mc.person_id = p.person_id
-            JOIN RoleType rt ON rt.role_type_id = mc.role_type_id AND rt.role_name = 'Director'
-            JOIN Movie m ON m.movie_id = mc.movie_id
-            WHERE m.budget > 0 AND m.revenue > 0
-            GROUP BY p.person_id, p.name HAVING COUNT(DISTINCT m.movie_id) >= 2
-            ORDER BY profit_M DESC NULLS LAST LIMIT 20
-        """
-    },
-    8: {
-        "title": "Streaming Availability Search",
-        "description": "Action/Sci-Fi/Thriller movies on major platforms via subscription",
-        "sql": """
-            SELECT DISTINCT m.title, m.release_year, m.imdb_rating, g.genre_name,
-                   sp.name AS platform, ma.access_type
-            FROM Movie m
-            JOIN MovieAvailability ma ON ma.movie_id = m.movie_id
-            JOIN StreamingPlatform sp ON sp.platform_id = ma.platform_id
-            JOIN MovieGenre mg ON mg.movie_id = m.movie_id
-            JOIN Genre g ON g.genre_id = mg.genre_id
-            WHERE g.genre_name IN ('Action', 'Sci-Fi', 'Thriller')
-              AND ma.access_type = 'subscription'
-            ORDER BY m.imdb_rating DESC NULLS LAST LIMIT 30
-        """
-    },
-    9: {
-        "title": "Award Winners on Streaming",
-        "description": "Award-winning films currently available for streaming",
-        "sql": """
-            SELECT m.title, m.release_year, m.imdb_rating,
-                   STRING_AGG(DISTINCT a.award_name || ' - ' || a.category, '; ') AS awards_won,
-                   COUNT(DISTINCT ma2.award_id) AS total_wins,
-                   STRING_AGG(DISTINCT sp.name, ', ') AS available_on
-            FROM Movie m
-            JOIN MovieAward ma2 ON ma2.movie_id = m.movie_id AND ma2.result = 'won'
-            JOIN Award a ON a.award_id = ma2.award_id
-            JOIN MovieAvailability ma ON ma.movie_id = m.movie_id
-            JOIN StreamingPlatform sp ON sp.platform_id = ma.platform_id
-            WHERE ma.access_type = 'subscription'
-            GROUP BY m.movie_id, m.title, m.release_year, m.imdb_rating
-            HAVING COUNT(DISTINCT ma2.award_id) >= 1
-            ORDER BY total_wins DESC, m.imdb_rating DESC NULLS LAST LIMIT 20
-        """
-    },
-    10: {
-        "title": "Group-Watch Recommendation",
-        "description": "Best movies for watch party #1 excluding already-seen titles",
-        "sql": """
-            SELECT m.title, m.release_year, m.imdb_rating,
-                   ROUND(AVG(all_r.rating), 2) AS avg_community_rating,
-                   COUNT(DISTINCT all_r.user_id) AS times_rated,
-                   STRING_AGG(DISTINCT g.genre_name, ', ' ORDER BY g.genre_name) AS genres
-            FROM Movie m
-            JOIN UserRating all_r ON all_r.movie_id = m.movie_id
-            JOIN MovieGenre mg ON mg.movie_id = m.movie_id
-            JOIN Genre g ON g.genre_id = mg.genre_id
-            WHERE NOT EXISTS (
-                SELECT 1 FROM WatchPartyMember wpm
-                JOIN UserRating ur_seen ON ur_seen.user_id = wpm.user_id AND ur_seen.movie_id = m.movie_id
-                WHERE wpm.party_id = 1
-            )
-            GROUP BY m.movie_id, m.title, m.release_year, m.imdb_rating
-            HAVING COUNT(DISTINCT all_r.user_id) >= 3
-            ORDER BY avg_community_rating DESC LIMIT 10
-        """
-    },
+    1:  {"title": "Top-Rated Movies by Genre",     "description": "Highest-rated movies per genre with min 5 ratings",   "file": "q01_top_rated_by_genre.sql"},
+    2:  {"title": "Actor-Director Collaborations",  "description": "Frequent actor-director partnerships",               "file": "q02_actor_director_collaborations.sql"},
+    3:  {"title": "Audience vs Critic Gap",         "description": "Movies where user and critic scores diverge",        "file": "q03_audience_vs_critic.sql"},
+    4:  {"title": "Mood-Based Recommendations",     "description": "Explainable recs based on tag matching",             "file": "q04_mood_recommendations.sql"},
+    5:  {"title": "Hidden Gems",                    "description": "High rating, low popularity",                        "file": "q05_hidden_gems.sql"},
+    6:  {"title": "Most Versatile Actors",          "description": "Actors across the widest genre range",               "file": "q06_versatile_actors.sql"},
+    7:  {"title": "Top Directors by Rating",         "description": "Directors ranked by avg rating and audience reach",  "file": "q07_profitable_directors.sql"},
+    8:  {"title": "Streaming Availability Search",  "description": "Action/Sci-Fi/Thriller on subscription platforms",   "file": "q08_streaming_search.sql"},
+    9:  {"title": "Award Winners on Streaming",     "description": "Award-winning films you can stream now",             "file": "q09_award_winners_streaming.sql"},
+    10: {"title": "Group-Watch Recommendation",     "description": "Best picks for a watch party",                       "file": "q10_group_watch.sql"},
 }
+
+
+def _load_query_sql(filename):
+    sql = (QUERIES_DIR / filename).read_text(encoding="utf-8")
+    lines = [l for l in sql.splitlines() if not l.strip().startswith("--")]
+    return "\n".join(lines).strip()
 
 
 def get_insight(query_id):
     q = INSIGHT_QUERIES.get(query_id)
     if not q:
         return None
-    results = query(q["sql"])
+    sql = _load_query_sql(q["file"])
+    results = query(sql)
     return {"title": q["title"], "description": q["description"], "results": results}

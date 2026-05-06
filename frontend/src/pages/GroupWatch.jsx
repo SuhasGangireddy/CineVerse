@@ -71,7 +71,6 @@ export default function GroupWatch() {
         Find the perfect movie everyone in your group will enjoy.
       </p>
 
-      {/* Party Selection */}
       <section className="mb-8 flex flex-wrap gap-4 items-end">
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-300">Select Party</label>
@@ -115,7 +114,6 @@ export default function GroupWatch() {
         </div>
       )}
 
-      {/* Results */}
       {searched && results.length === 0 && !loading && (
         <p className="text-gray-500">No group recommendations found for this party.</p>
       )}
@@ -145,7 +143,6 @@ export default function GroupWatch() {
                       {movie.genres && <span>{movie.genres}</span>}
                     </div>
 
-                    {/* Community metrics */}
                     <div className="flex flex-wrap gap-4 mt-3 text-sm">
                       {movie.avg_community_rating != null && (
                         <span className="text-gray-300">
@@ -165,7 +162,6 @@ export default function GroupWatch() {
                   </div>
                 </div>
 
-                {/* Explanation */}
                 <div
                   className="mt-4 p-3 rounded text-sm"
                   style={{ background: "#2a2a2a", borderLeft: "3px solid #e50914" }}

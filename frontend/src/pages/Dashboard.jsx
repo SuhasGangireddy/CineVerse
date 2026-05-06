@@ -51,7 +51,6 @@ function ScrollRow({ title, movies }) {
     <section className="mb-10">
       <h2 className="mb-4 text-xl font-semibold text-white">{title}</h2>
       <div className="group/row relative">
-        {/* Left arrow — only when scrollable */}
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
@@ -64,7 +63,6 @@ function ScrollRow({ title, movies }) {
           </button>
         )}
 
-        {/* Scrollable track */}
         <div
           ref={scrollRef}
           className="flex gap-4 overflow-x-auto scroll-smooth pb-2"
@@ -77,7 +75,6 @@ function ScrollRow({ title, movies }) {
           ))}
         </div>
 
-        {/* Right arrow — only when scrollable */}
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}
@@ -134,7 +131,6 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Stats Row */}
       <div className="mb-10 flex flex-wrap gap-4">
         <StatCard
           label="Total Movies"
@@ -154,7 +150,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Movie Rows */}
       <ScrollRow title="Top Rated" movies={topRated} />
       <ScrollRow title="Trending" movies={trending} />
       <ScrollRow title="Recently Released" movies={recent} />

@@ -1,17 +1,5 @@
-"""
-Step 3 (Optional): Enrich movie data with TMDb API.
-
-Adds: poster_url, plot/overview, budget, revenue, language, country.
-
-Requires a free TMDb API key. Get one at:
-  https://developer.themoviedb.org/
-
-Set your API key as an environment variable:
-  export TMDB_API_KEY="your_key_here"
-
-Or pass it as a command-line argument:
-  python 03_enrich_tmdb.py --api-key YOUR_KEY
-"""
+# Enrich movie data with TMDb API (poster, plot, budget, revenue, etc.)
+# Requires TMDB_API_KEY env var or --api-key argument.
 
 import os
 import sys
@@ -42,7 +30,6 @@ def get_api_key():
 
 
 def fetch_tmdb_movie(tmdb_id, api_key):
-    """Fetch movie details from TMDb API."""
     url = f"{TMDB_BASE}/movie/{int(tmdb_id)}"
     params = {"api_key": api_key, "language": "en-US"}
     try:
@@ -50,7 +37,6 @@ def fetch_tmdb_movie(tmdb_id, api_key):
         if resp.status_code == 200:
             return resp.json()
         elif resp.status_code == 429:
-            # Rate limited — wait and retry
             time.sleep(2)
             return fetch_tmdb_movie(tmdb_id, api_key)
         else:
@@ -70,7 +56,7 @@ def enrich_movies(api_key):
     enriched = 0
     skipped = 0
 
-    print(f"Enriching {total} movies from TMDb API ...")
+    print(f"Enriching {total} movies from TMDb")
 
     for idx, row in movies.iterrows():
         tmdb_id = row.get("tmdb_id")
@@ -88,19 +74,16 @@ def enrich_movies(api_key):
             if poster:
                 movies.at[idx, "poster_url"] = TMDB_IMAGE_BASE + poster
 
-            # Language
             orig_lang = data.get("original_language", "en")
             lang_map = {"en": "English", "ja": "Japanese", "ko": "Korean",
                         "fr": "French", "es": "Spanish", "de": "German",
                         "it": "Italian", "zh": "Chinese", "hi": "Hindi"}
             movies.at[idx, "language"] = lang_map.get(orig_lang, orig_lang)
 
-            # Country (first production country)
             countries = data.get("production_countries", [])
             if countries:
                 movies.at[idx, "country"] = countries[0].get("name", "")
 
-            # Release date (more accurate)
             release = data.get("release_date")
             if release:
                 movies.at[idx, "release_date_full"] = release
@@ -110,21 +93,15 @@ def enrich_movies(api_key):
             skipped += 1
 
         if (idx + 1) % 50 == 0:
-            print(f"  Progress: {idx + 1}/{total} (enriched: {enriched}, skipped: {skipped})")
+            print(f"  {idx + 1}/{total} (enriched: {enriched}, skipped: {skipped})")
 
         time.sleep(RATE_LIMIT_DELAY)
 
     movies.to_csv(movies_path, index=False)
-    print(f"\nDone! Enriched {enriched} movies, skipped {skipped}.")
-    print(f"Updated: {movies_path}")
-
-    # Also create external ratings for Rotten Tomatoes (if available via OMDb, skip for now)
-    # The IMDb external ratings are already created in step 2
+    print(f"\nDone. Enriched {enriched} movies, skipped {skipped}.")
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("CineVerse ETL - Step 3: TMDb Enrichment")
-    print("=" * 60)
+    print("TMDb enrichment")
     api_key = get_api_key()
     enrich_movies(api_key)

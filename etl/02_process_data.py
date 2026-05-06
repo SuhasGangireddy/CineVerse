@@ -1,16 +1,4 @@
-"""
-Step 2: Process and merge IMDb + MovieLens datasets into clean CSVs.
-
-Strategy:
-  1. Start with MovieLens links.csv to get the bridge: movieId -> imdbId -> tmdbId
-  2. Filter IMDb title.basics to movies only (titleType == 'movie'), year >= 1970,
-     and only keep titles that appear in MovieLens (so we have ratings/tags)
-  3. Cap at ~500 movies sorted by IMDb vote count (popular, well-known films)
-  4. Pull people & credits from IMDb for those movies
-  5. Pull user ratings from MovieLens for those movies
-  6. Pull tag genome relevance scores for those movies
-  7. Output clean CSVs ready for PostgreSQL COPY
-"""
+# Process and merge IMDb + MovieLens datasets into clean CSVs
 
 import pandas as pd
 import numpy as np
@@ -20,7 +8,6 @@ RAW_DIR = Path(__file__).resolve().parent.parent / "data_raw"
 CLEAN_DIR = Path(__file__).resolve().parent.parent / "data_clean"
 CLEAN_DIR.mkdir(exist_ok=True)
 
-# Configuration
 MAX_MOVIES = 500
 MIN_YEAR = 1970
 MIN_IMDB_VOTES = 10000
@@ -31,25 +18,22 @@ MAX_TAGS_PER_MOVIE = 10
 
 
 def load_imdb_basics():
-    """Load and filter IMDb title.basics.tsv."""
-    print("Loading IMDb title.basics ...")
+    print("Loading IMDb title.basics")
     df = pd.read_csv(
         RAW_DIR / "title.basics.tsv", sep="\t", na_values="\\N",
         dtype={"tconst": str, "titleType": str, "primaryTitle": str,
                "startYear": str, "runtimeMinutes": str, "genres": str}
     )
-    # Filter to movies only
     df = df[df["titleType"] == "movie"].copy()
     df["startYear"] = pd.to_numeric(df["startYear"], errors="coerce")
     df["runtimeMinutes"] = pd.to_numeric(df["runtimeMinutes"], errors="coerce")
     df = df[df["startYear"] >= MIN_YEAR].dropna(subset=["startYear"])
-    print(f"  IMDb movies (year >= {MIN_YEAR}): {len(df)}")
+    print(f"  {len(df)} movies from {MIN_YEAR}+")
     return df
 
 
 def load_imdb_ratings():
-    """Load IMDb title.ratings.tsv."""
-    print("Loading IMDb title.ratings ...")
+    print("Loading IMDb title.ratings")
     df = pd.read_csv(
         RAW_DIR / "title.ratings.tsv", sep="\t", na_values="\\N",
         dtype={"tconst": str}
@@ -58,8 +42,7 @@ def load_imdb_ratings():
 
 
 def load_movielens_links():
-    """Load MovieLens links.csv (movieId -> imdbId, tmdbId)."""
-    print("Loading MovieLens links ...")
+    print("Loading MovieLens links")
     df = pd.read_csv(RAW_DIR / "ml-latest-small" / "links.csv",
                       dtype={"movieId": int, "imdbId": str, "tmdbId": str})
     # Pad imdbId to match IMDb format: tt0000001
@@ -69,20 +52,16 @@ def load_movielens_links():
 
 
 def select_movies(imdb_basics, imdb_ratings, ml_links):
-    """Select the top N movies that exist in both IMDb and MovieLens."""
-    print(f"\nSelecting top {MAX_MOVIES} movies ...")
+    print(f"\nSelecting top {MAX_MOVIES} movies")
 
-    # Merge IMDb basics with ratings
     movies = imdb_basics.merge(imdb_ratings, on="tconst", how="inner")
     movies = movies[movies["numVotes"] >= MIN_IMDB_VOTES]
-    print(f"  Movies with >= {MIN_IMDB_VOTES} votes: {len(movies)}")
+    print(f"  {len(movies)} with >= {MIN_IMDB_VOTES} votes")
 
-    # Keep only movies in MovieLens
     movies = movies.merge(ml_links[["imdb_id", "movieId", "tmdb_id"]],
                           left_on="tconst", right_on="imdb_id", how="inner")
-    print(f"  Movies also in MovieLens: {len(movies)}")
+    print(f"  {len(movies)} also in MovieLens")
 
-    # Sort by votes and take top N
     movies = movies.sort_values("numVotes", ascending=False).head(MAX_MOVIES)
     movies = movies.reset_index(drop=True)
     movies["movie_id"] = movies.index + 1
@@ -92,8 +71,7 @@ def select_movies(imdb_basics, imdb_ratings, ml_links):
 
 
 def process_movies(movies):
-    """Output movies.csv."""
-    print("\nProcessing movies ...")
+    print("\nProcessing movies")
     out = pd.DataFrame({
         "movie_id": movies["movie_id"],
         "imdb_id": movies["tconst"],
@@ -111,14 +89,12 @@ def process_movies(movies):
         "genres_raw": movies["genres"],
     })
     out.to_csv(CLEAN_DIR / "movies.csv", index=False)
-    print(f"  -> movies.csv ({len(out)} rows)")
+    print(f"  Wrote {len(out)} movies")
     return out
 
 
 def process_genres(movies_df):
-    """Extract genres from IMDb genre strings and output genre.csv + movie_genre.csv."""
-    print("\nProcessing genres ...")
-    # Explode genres
+    print("\nProcessing genres")
     genre_rows = []
     for _, row in movies_df.iterrows():
         if pd.isna(row["genres_raw"]):
@@ -133,32 +109,28 @@ def process_genres(movies_df):
         "genre_name": unique_genres
     })
     genre_lookup.to_csv(CLEAN_DIR / "genres.csv", index=False)
-    print(f"  -> genres.csv ({len(genre_lookup)} rows)")
+    print(f"  {len(genre_lookup)} genres")
 
-    # Movie-genre bridge
     mg = genre_df.merge(genre_lookup, on="genre_name")[["movie_id", "genre_id"]]
     mg.to_csv(CLEAN_DIR / "movie_genres.csv", index=False)
-    print(f"  -> movie_genres.csv ({len(mg)} rows)")
+    print(f"  {len(mg)} movie-genre links")
     return genre_lookup
 
 
 def process_people_and_credits(movies):
-    """Load IMDb principals and name.basics to get cast/crew."""
-    print("\nProcessing people and credits ...")
+    print("\nProcessing people and credits")
 
     movie_ids_map = dict(zip(movies["tconst"], movies["movie_id"]))
     movie_tconsts = set(movies["tconst"])
 
-    # Load principals
-    print("  Loading title.principals (this may take a moment) ...")
+    print("  Loading title.principals (this may take a moment)")
     principals = pd.read_csv(
         RAW_DIR / "title.principals.tsv", sep="\t", na_values="\\N",
         dtype={"tconst": str, "nconst": str, "category": str, "characters": str}
     )
     principals = principals[principals["tconst"].isin(movie_tconsts)].copy()
-    print(f"  Credits for selected movies: {len(principals)}")
+    print(f"  {len(principals)} credits for selected movies")
 
-    # Map category to role
     role_map = {
         "actor": "Actor", "actress": "Actor",
         "director": "Director", "producer": "Producer",
@@ -169,12 +141,10 @@ def process_people_and_credits(movies):
     principals["role_name"] = principals["category"].map(role_map)
     principals = principals.dropna(subset=["role_name"])
 
-    # Get unique people
     person_nconsts = principals["nconst"].unique()
-    print(f"  Unique people referenced: {len(person_nconsts)}")
+    print(f"  {len(person_nconsts)} unique people")
 
-    # Load name.basics
-    print("  Loading name.basics ...")
+    print("  Loading name.basics")
     names = pd.read_csv(
         RAW_DIR / "name.basics.tsv", sep="\t", na_values="\\N",
         dtype={"nconst": str, "primaryName": str, "birthYear": str,
@@ -184,7 +154,6 @@ def process_people_and_credits(movies):
     names["birthYear"] = pd.to_numeric(names["birthYear"], errors="coerce")
     names["deathYear"] = pd.to_numeric(names["deathYear"], errors="coerce")
 
-    # Assign person IDs
     names = names.reset_index(drop=True)
     names["person_id"] = names.index + 1
     person_id_map = dict(zip(names["nconst"], names["person_id"]))
@@ -198,9 +167,8 @@ def process_people_and_credits(movies):
         "primary_profession": names["primaryProfession"].str.split(",").str[0],
     })
     people_out.to_csv(CLEAN_DIR / "people.csv", index=False)
-    print(f"  -> people.csv ({len(people_out)} rows)")
+    print(f"  Wrote {len(people_out)} people")
 
-    # Role types
     role_types = pd.DataFrame({
         "role_type_id": [1, 2, 3, 4],
         "role_name": ["Actor", "Director", "Producer", "Writer"]
@@ -208,7 +176,6 @@ def process_people_and_credits(movies):
     role_types.to_csv(CLEAN_DIR / "role_types.csv", index=False)
     role_id_map = dict(zip(role_types["role_name"], role_types["role_type_id"]))
 
-    # Build credits
     def parse_character(chars_str):
         if pd.isna(chars_str):
             return None
@@ -237,20 +204,18 @@ def process_people_and_credits(movies):
             credit_id += 1
 
     credits_df = pd.DataFrame(credits_rows)
-    # Deduplicate on (movie_id, person_id, role_type_id, character_name)
     credits_df = credits_df.drop_duplicates(
         subset=["movie_id", "person_id", "role_type_id", "character_name"]
     )
     credits_df["credit_id"] = range(1, len(credits_df) + 1)
     credits_df.to_csv(CLEAN_DIR / "movie_credits.csv", index=False)
-    print(f"  -> movie_credits.csv ({len(credits_df)} rows)")
+    print(f"  Wrote {len(credits_df)} credits")
 
     return people_out, credits_df
 
 
 def process_user_ratings(movies):
-    """Process MovieLens user ratings for selected movies."""
-    print("\nProcessing user ratings ...")
+    print("\nProcessing user ratings")
     ml_ratings = pd.read_csv(RAW_DIR / "ml-latest-small" / "ratings.csv")
     ml_links = pd.read_csv(RAW_DIR / "ml-latest-small" / "links.csv",
                             dtype={"imdbId": str})
@@ -261,7 +226,6 @@ def process_user_ratings(movies):
     ml_links = ml_links.dropna(subset=["movie_id"])
     ml_links["movie_id"] = ml_links["movie_id"].astype(int)
 
-    # Map MovieLens movieId -> our movie_id
     ml_movie_map = dict(zip(ml_links["movieId"], ml_links["movie_id"]))
 
     ratings = ml_ratings.copy()
@@ -269,11 +233,8 @@ def process_user_ratings(movies):
     ratings = ratings.dropna(subset=["movie_id"])
     ratings["movie_id"] = ratings["movie_id"].astype(int)
 
-    # Limit users
     user_ids = sorted(ratings["userId"].unique())[:MAX_USERS]
     ratings = ratings[ratings["userId"].isin(user_ids)]
-
-    # Limit total ratings
     ratings = ratings.head(MAX_RATINGS)
 
     # Remap user IDs to 1..N
@@ -284,10 +245,8 @@ def process_user_ratings(movies):
     # Scale ratings from 0.5-5.0 to 1.0-10.0
     ratings["rating_scaled"] = ratings["rating"] * 2.0
 
-    # Convert timestamp to date
     ratings["rating_date"] = pd.to_datetime(ratings["timestamp"], unit="s").dt.date
 
-    # Output users
     users_df = pd.DataFrame({
         "user_id": range(1, len(unique_users) + 1),
         "username": [f"user_{uid}" for uid in unique_users],
@@ -300,40 +259,28 @@ def process_user_ratings(movies):
         "preferred_language": "English",
     })
     users_df.to_csv(CLEAN_DIR / "users.csv", index=False)
-    print(f"  -> users.csv ({len(users_df)} rows)")
+    print(f"  Wrote {len(users_df)} users")
 
-    # Output ratings
     ratings_out = ratings[["user_id", "movie_id", "rating_scaled", "rating_date"]].copy()
     ratings_out.columns = ["user_id", "movie_id", "rating", "rating_date"]
-    # Deduplicate
     ratings_out = ratings_out.drop_duplicates(subset=["user_id", "movie_id"])
     ratings_out.to_csv(CLEAN_DIR / "user_ratings.csv", index=False)
-    print(f"  -> user_ratings.csv ({len(ratings_out)} rows)")
+    print(f"  Wrote {len(ratings_out)} ratings")
 
     return users_df, ratings_out
 
 
 def process_tags_and_relevance(movies):
-    """Process MovieLens Tag Genome for mood/theme tags."""
-    print("\nProcessing tags and relevance scores ...")
+    print("\nProcessing tags and relevance scores")
 
     movie_id_map = dict(zip(movies["tconst"], movies["movie_id"]))
 
-    # Load MovieLens links to bridge movieId -> imdbId
     ml_links = pd.read_csv(RAW_DIR / "ml-latest-small" / "links.csv",
                             dtype={"imdbId": str})
     ml_links["imdb_id"] = "tt" + ml_links["imdbId"].str.zfill(7)
     ml_links["movie_id"] = ml_links["imdb_id"].map(movie_id_map)
 
-    # Try loading tag genome
-    genome_dir = RAW_DIR / "genome_2021"
-
-    # Check what files exist
-    if not genome_dir.exists():
-        # Try alternate location
-        genome_dir = RAW_DIR
-
-    # Find the tag and score files
+    # Try to find tag genome files
     tag_file = None
     score_file = None
 
@@ -348,27 +295,23 @@ def process_tags_and_relevance(movies):
                 score_file = f
 
     if tag_file and score_file:
-        print(f"  Found tag file: {tag_file.name}")
-        print(f"  Found score file: {score_file.name}")
+        print(f"  Found {tag_file.name}, {score_file.name}")
 
         tags_raw = pd.read_csv(tag_file)
-        print(f"  Total tags in genome: {len(tags_raw)}")
+        print(f"  {len(tags_raw)} tags in genome")
 
-        # Load scores (can be large — read in chunks)
         scores_chunks = []
         ml_movie_ids = set(ml_links.dropna(subset=["movie_id"])["movieId"].astype(int))
 
         for chunk in pd.read_csv(score_file, chunksize=500000):
-            # Filter to our movies
             chunk_filtered = chunk[chunk["movieId"].isin(ml_movie_ids)]
             if len(chunk_filtered) > 0:
                 scores_chunks.append(chunk_filtered)
 
         if scores_chunks:
             scores = pd.concat(scores_chunks, ignore_index=True)
-            print(f"  Relevance scores for our movies: {len(scores)}")
+            print(f"  {len(scores)} relevance scores for our movies")
 
-            # Map movieId -> movie_id
             ml_to_movie = dict(zip(
                 ml_links.dropna(subset=["movie_id"])["movieId"].astype(int),
                 ml_links.dropna(subset=["movie_id"])["movie_id"].astype(int)
@@ -377,14 +320,11 @@ def process_tags_and_relevance(movies):
             scores = scores.dropna(subset=["movie_id"])
             scores["movie_id"] = scores["movie_id"].astype(int)
 
-            # Filter high-relevance scores
             scores = scores[scores["relevance"] >= TAG_RELEVANCE_THRESHOLD]
 
-            # Keep top N tags per movie
             scores = scores.sort_values("relevance", ascending=False)
             scores = scores.groupby("movie_id").head(MAX_TAGS_PER_MOVIE)
 
-            # Get unique tags used
             used_tag_ids = scores["tagId"].unique()
             tags_used = tags_raw[tags_raw["tagId"].isin(used_tag_ids)].copy()
             tags_used = tags_used.reset_index(drop=True)
@@ -394,9 +334,8 @@ def process_tags_and_relevance(movies):
             tags_used_out = tags_used[["tag_id", "tag"]].copy()
             tags_used_out.columns = ["tag_id", "tag_name"]
             tags_used_out.to_csv(CLEAN_DIR / "tags.csv", index=False)
-            print(f"  -> tags.csv ({len(tags_used_out)} rows)")
+            print(f"  Wrote {len(tags_used_out)} tags")
 
-            # Output relevance
             scores["tag_id"] = scores["tagId"].map(tag_id_remap)
             scores = scores.dropna(subset=["tag_id"])
             scores["tag_id"] = scores["tag_id"].astype(int)
@@ -405,11 +344,11 @@ def process_tags_and_relevance(movies):
             rel_out["relevance_score"] = rel_out["relevance_score"].round(3)
             rel_out = rel_out.drop_duplicates(subset=["movie_id", "tag_id"])
             rel_out.to_csv(CLEAN_DIR / "movie_tag_relevance.csv", index=False)
-            print(f"  -> movie_tag_relevance.csv ({len(rel_out)} rows)")
+            print(f"  Wrote {len(rel_out)} relevance scores")
             return tags_used_out, rel_out
 
     # Fallback: use MovieLens user tags
-    print("  Tag genome not found, using MovieLens user tags as fallback ...")
+    print("  Tag genome not found, falling back to MovieLens user tags")
     ml_tags = pd.read_csv(RAW_DIR / "ml-latest-small" / "tags.csv",
                            dtype={"userId": int, "movieId": int, "tag": str})
 
@@ -420,7 +359,6 @@ def process_tags_and_relevance(movies):
     ml_tags["movie_id"] = ml_tags["movieId"].map(ml_to_movie)
     ml_tags = ml_tags.dropna(subset=["movie_id"])
 
-    # Count tag frequency as proxy for relevance
     tag_counts = ml_tags.groupby("tag").size().reset_index(name="count")
     tag_counts = tag_counts[tag_counts["count"] >= 2].sort_values("count", ascending=False).head(200)
     tag_counts["tag_id"] = range(1, len(tag_counts) + 1)
@@ -428,9 +366,8 @@ def process_tags_and_relevance(movies):
     tags_out = tag_counts[["tag_id", "tag"]].copy()
     tags_out.columns = ["tag_id", "tag_name"]
     tags_out.to_csv(CLEAN_DIR / "tags.csv", index=False)
-    print(f"  -> tags.csv ({len(tags_out)} rows)")
+    print(f"  Wrote {len(tags_out)} tags")
 
-    # Build relevance from tag presence
     tag_name_to_id = dict(zip(tags_out["tag_name"], tags_out["tag_id"]))
     ml_tags["tag_id"] = ml_tags["tag"].map(tag_name_to_id)
     ml_tags = ml_tags.dropna(subset=["tag_id"])
@@ -441,14 +378,13 @@ def process_tags_and_relevance(movies):
     rel["relevance_score"] = (rel["count"] / rel["count"].max()).round(3).clip(0.1, 1.0)
     rel_out = rel[["movie_id", "tag_id", "relevance_score"]].drop_duplicates()
     rel_out.to_csv(CLEAN_DIR / "movie_tag_relevance.csv", index=False)
-    print(f"  -> movie_tag_relevance.csv ({len(rel_out)} rows)")
+    print(f"  Wrote {len(rel_out)} relevance scores")
 
     return tags_out, rel_out
 
 
 def process_external_ratings(movies):
-    """Create external ratings from IMDb scores already loaded."""
-    print("\nProcessing external ratings ...")
+    print("\nProcessing external ratings")
     rows = []
     for _, m in movies.iterrows():
         if pd.notna(m.get("imdb_rating")):
@@ -461,17 +397,14 @@ def process_external_ratings(movies):
             })
     ext_df = pd.DataFrame(rows)
     ext_df.to_csv(CLEAN_DIR / "external_ratings.csv", index=False)
-    print(f"  -> external_ratings.csv ({len(ext_df)} rows)")
+    print(f"  Wrote {len(ext_df)} external ratings")
     return ext_df
 
 
 def generate_synthetic_support_data(movies_df, users_df):
-    """Generate minimal synthetic data for tables that don't have a natural dataset source:
-       distributors, streaming platforms, awards, watchlists, watch parties, etc.
-    """
-    print("\nGenerating support data (distributors, platforms, awards, watchlists) ...")
+    """Generate synthetic data for tables without a natural dataset source."""
+    print("\nGenerating support data (distributors, platforms, awards, watchlists)")
 
-    # Distributors
     distributors = pd.DataFrame({
         "distributor_id": range(1, 21),
         "name": [
@@ -495,9 +428,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         ]
     })
     distributors.to_csv(CLEAN_DIR / "distributors.csv", index=False)
-    print(f"  -> distributors.csv ({len(distributors)} rows)")
+    print(f"  {len(distributors)} distributors")
 
-    # Movie-distributor (assign randomly but sensibly)
     np.random.seed(42)
     md_rows = []
     for _, m in movies_df.iterrows():
@@ -505,9 +437,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         md_rows.append({"movie_id": m["movie_id"], "distributor_id": dist_id, "region": "Worldwide"})
     md_df = pd.DataFrame(md_rows)
     md_df.to_csv(CLEAN_DIR / "movie_distributors.csv", index=False)
-    print(f"  -> movie_distributors.csv ({len(md_df)} rows)")
+    print(f"  {len(md_df)} movie-distributor links")
 
-    # Streaming platforms
     platforms = pd.DataFrame({
         "platform_id": range(1, 11),
         "name": ["Netflix", "Amazon Prime Video", "Disney+", "Hulu", "Max (HBO)",
@@ -522,9 +453,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         ]
     })
     platforms.to_csv(CLEAN_DIR / "streaming_platforms.csv", index=False)
-    print(f"  -> streaming_platforms.csv ({len(platforms)} rows)")
+    print(f"  {len(platforms)} streaming platforms")
 
-    # Movie availability (random assignment, ~2 platforms per movie)
     avail_rows = []
     access_types = ["subscription", "rent", "buy"]
     for _, m in movies_df.iterrows():
@@ -543,9 +473,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         subset=["movie_id", "platform_id", "region", "access_type"]
     )
     avail_df.to_csv(CLEAN_DIR / "movie_availability.csv", index=False)
-    print(f"  -> movie_availability.csv ({len(avail_df)} rows)")
+    print(f"  {len(avail_df)} availability records")
 
-    # Awards
     awards = pd.DataFrame({
         "award_id": range(1, 16),
         "award_name": [
@@ -564,9 +493,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         ]
     })
     awards.to_csv(CLEAN_DIR / "awards.csv", index=False)
-    print(f"  -> awards.csv ({len(awards)} rows)")
+    print(f"  {len(awards)} awards")
 
-    # Movie awards (assign some wins/nominations to top-rated movies)
     award_rows = []
     ma_id = 1
     top_movies = movies_df.sort_values("imdb_rating", ascending=False).head(80)
@@ -588,9 +516,8 @@ def generate_synthetic_support_data(movies_df, users_df):
     )
     award_df["movie_award_id"] = range(1, len(award_df) + 1)
     award_df.to_csv(CLEAN_DIR / "movie_awards.csv", index=False)
-    print(f"  -> movie_awards.csv ({len(award_df)} rows)")
+    print(f"  {len(award_df)} movie awards")
 
-    # Production companies
     companies = pd.DataFrame({
         "company_id": range(1, 26),
         "name": [
@@ -615,9 +542,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         ]
     })
     companies.to_csv(CLEAN_DIR / "production_companies.csv", index=False)
-    print(f"  -> production_companies.csv ({len(companies)} rows)")
+    print(f"  {len(companies)} production companies")
 
-    # Movie-production company (random)
     mpc_rows = []
     for _, m in movies_df.iterrows():
         n = np.random.randint(1, 3)
@@ -626,9 +552,8 @@ def generate_synthetic_support_data(movies_df, users_df):
             mpc_rows.append({"movie_id": m["movie_id"], "company_id": int(cid)})
     mpc_df = pd.DataFrame(mpc_rows).drop_duplicates()
     mpc_df.to_csv(CLEAN_DIR / "movie_production_companies.csv", index=False)
-    print(f"  -> movie_production_companies.csv ({len(mpc_df)} rows)")
+    print(f"  {len(mpc_df)} movie-company links")
 
-    # Watchlists
     n_watchlists = min(50, len(users_df))
     wl_rows = []
     for i in range(1, n_watchlists + 1):
@@ -639,9 +564,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         })
     wl_df = pd.DataFrame(wl_rows)
     wl_df.to_csv(CLEAN_DIR / "watchlists.csv", index=False)
-    print(f"  -> watchlists.csv ({len(wl_df)} rows)")
+    print(f"  {len(wl_df)} watchlists")
 
-    # Watchlist items
     wi_rows = []
     movie_ids = movies_df["movie_id"].tolist()
     for wl_id in range(1, n_watchlists + 1):
@@ -657,9 +581,8 @@ def generate_synthetic_support_data(movies_df, users_df):
             })
     wi_df = pd.DataFrame(wi_rows).drop_duplicates(subset=["watchlist_id", "movie_id"])
     wi_df.to_csv(CLEAN_DIR / "watchlist_items.csv", index=False)
-    print(f"  -> watchlist_items.csv ({len(wi_df)} rows)")
+    print(f"  {len(wi_df)} watchlist items")
 
-    # Watch parties
     n_parties = 15
     wp_rows = []
     for i in range(1, n_parties + 1):
@@ -677,9 +600,8 @@ def generate_synthetic_support_data(movies_df, users_df):
         })
     wp_df = pd.DataFrame(wp_rows)
     wp_df.to_csv(CLEAN_DIR / "watch_parties.csv", index=False)
-    print(f"  -> watch_parties.csv ({len(wp_df)} rows)")
+    print(f"  {len(wp_df)} watch parties")
 
-    # Watch party members
     wpm_rows = []
     for _, wp in wp_df.iterrows():
         n_members = np.random.randint(2, 5)
@@ -690,9 +612,8 @@ def generate_synthetic_support_data(movies_df, users_df):
             wpm_rows.append({"party_id": wp["party_id"], "user_id": int(uid)})
     wpm_df = pd.DataFrame(wpm_rows).drop_duplicates()
     wpm_df.to_csv(CLEAN_DIR / "watch_party_members.csv", index=False)
-    print(f"  -> watch_party_members.csv ({len(wpm_df)} rows)")
+    print(f"  {len(wpm_df)} party members")
 
-    # Watch party suggestions
     wps_rows = []
     for _, wp in wp_df.iterrows():
         n_sugg = np.random.randint(2, 5)
@@ -706,25 +627,18 @@ def generate_synthetic_support_data(movies_df, users_df):
             })
     wps_df = pd.DataFrame(wps_rows).drop_duplicates(subset=["party_id", "movie_id"])
     wps_df.to_csv(CLEAN_DIR / "watch_party_suggestions.csv", index=False)
-    print(f"  -> watch_party_suggestions.csv ({len(wps_df)} rows)")
-
-    print("  Support data generation complete.")
+    print(f"  {len(wps_df)} party suggestions")
 
 
 def main():
-    print("=" * 60)
-    print("CineVerse ETL - Step 2: Process & Merge Datasets")
-    print("=" * 60)
+    print("Processing datasets\n")
 
-    # Load sources
     imdb_basics = load_imdb_basics()
     imdb_ratings = load_imdb_ratings()
     ml_links = load_movielens_links()
 
-    # Select movies
     movies = select_movies(imdb_basics, imdb_ratings, ml_links)
 
-    # Process each table
     movies_df = process_movies(movies)
     process_genres(movies_df)
     process_people_and_credits(movies)
@@ -733,11 +647,9 @@ def main():
     process_external_ratings(movies_df)
     generate_synthetic_support_data(movies_df, users_df)
 
-    print("\n" + "=" * 60)
-    print("All CSVs written to:", CLEAN_DIR)
-    print("Run 03_enrich_tmdb.py next (optional) to add posters/budget/revenue.")
+    print(f"\nAll CSVs written to {CLEAN_DIR}")
+    print("Run 03_enrich_tmdb.py next to add posters/budget/revenue.")
     print("Then run 04_load_to_postgres.py to load into the database.")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

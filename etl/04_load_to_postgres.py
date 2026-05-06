@@ -1,17 +1,4 @@
-"""
-Step 4: Load clean CSVs into PostgreSQL.
-
-This script:
-  1. Reads all CSVs from data_clean/
-  2. Generates and executes SQL INSERT statements
-  3. Resets sequences to correct values
-
-Usage:
-  python 04_load_to_postgres.py --host localhost --port 5432 --db cineverse --user postgres --password yourpass
-
-Or set environment variables:
-  export PGHOST=localhost PGPORT=5432 PGDATABASE=cineverse PGUSER=postgres PGPASSWORD=yourpass
-"""
+# Generate SQL load scripts from clean CSVs
 
 import os
 import sys
@@ -25,26 +12,20 @@ SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 
 
 def generate_sql_load_script():
-    """Generate 02_load_data.sql from CSVs — pure SQL COPY commands."""
-    print("Generating 02_load_data.sql from CSVs ...")
+    """Generate 02_load_data.sql with COPY commands."""
+    print("Generating 02_load_data.sql")
 
     lines = [
-        "-- ============================================================================",
         "-- CineVerse: Data Loading Script (generated from real datasets)",
         "-- ISE 503: Data Management - Spring 2026",
-        "-- ",
-        "-- Script: 02_load_data.sql",
-        "-- Purpose: Load processed CSV data into PostgreSQL tables",
-        "-- Usage: Run from the project root directory:",
-        "--   psql -U postgres -d cineverse -f sql/02_load_data.sql",
-        "-- ============================================================================",
+        "--",
+        "-- Usage: psql -U postgres -d cineverse -f sql/02_load_data.sql",
         "",
-        "-- NOTE: Adjust file paths below to match your system.",
-        "-- The \\copy command uses client-side paths (relative to where psql is run).",
+        "-- Adjust file paths below to match your system.",
         "",
     ]
 
-    # Define load order (respecting foreign key dependencies)
+    # Load order respects foreign key dependencies
     load_order = [
         ("movies.csv", "Movie",
          "movie_id, imdb_id, tmdb_id, title, release_year, runtime_minutes, language, country, plot, budget, revenue, imdb_rating, imdb_votes, genres_raw",
@@ -128,12 +109,11 @@ def generate_sql_load_script():
             lines.append("")
             continue
 
-        lines.append(f"-- Load {table_name}")
+        lines.append(f"-- {table_name}")
         lines.append(f"\\copy {table_name}({columns}) FROM 'data_clean/{csv_name}' WITH (FORMAT csv, HEADER true, NULL '');")
         lines.append("")
 
-    # Reset sequences
-    lines.append("-- Reset sequences to max ID + 1")
+    lines.append("-- Reset sequences")
     sequence_resets = [
         ("movie_movie_id_seq", "Movie", "movie_id"),
         ("person_person_id_seq", "Person", "person_id"),
@@ -156,29 +136,25 @@ def generate_sql_load_script():
         lines.append(f"SELECT setval('{seq}', COALESCE((SELECT MAX({col}) FROM {table}), 0) + 1, false);")
 
     lines.append("")
-    lines.append("-- Data loading complete!")
     lines.append("-- Verify with: SELECT tablename, n_live_tup FROM pg_stat_user_tables ORDER BY tablename;")
 
     sql_content = "\n".join(lines)
     out_path = SQL_DIR / "02_load_data.sql"
     out_path.write_text(sql_content, encoding="utf-8")
-    print(f"  -> {out_path}")
+    print(f"  Wrote {out_path}")
 
 
 def generate_insert_sql():
-    """Alternative: Generate INSERT statements instead of COPY for portability."""
-    print("\nGenerating 02_insert_data.sql (INSERT-based alternative) ...")
+    """Generate INSERT statements as a portable alternative to COPY."""
+    print("\nGenerating 02_insert_data.sql")
 
     lines = [
-        "-- ============================================================================",
         "-- CineVerse: Data Loading Script (INSERT statements, generated from real data)",
         "-- ISE 503: Data Management - Spring 2026",
         "-- Alternative to COPY-based loading for portability.",
-        "-- ============================================================================",
         "",
     ]
 
-    # Load order with table info
     tables_to_load = [
         ("genres.csv", "Genre", ["genre_id", "genre_name"]),
         ("role_types.csv", "RoleType", ["role_type_id", "role_name"]),
@@ -219,7 +195,6 @@ def generate_insert_sql():
             continue
 
         df = pd.read_csv(csv_path)
-        # Only use columns that exist in the CSV
         available_cols = [c for c in columns if c in df.columns]
         if not available_cols:
             continue
@@ -227,7 +202,6 @@ def generate_insert_sql():
         df = df[available_cols]
         lines.append(f"-- {table_name} ({len(df)} rows)")
 
-        # Generate INSERT statements in batches
         batch_size = 50
         for i in range(0, len(df), batch_size):
             batch = df.iloc[i:i + batch_size]
@@ -256,15 +230,11 @@ def generate_insert_sql():
     sql_content = "\n".join(lines)
     out_path = SQL_DIR / "02_insert_data.sql"
     out_path.write_text(sql_content, encoding="utf-8")
-    print(f"  -> {out_path}")
-    print(f"  (File size: {out_path.stat().st_size / 1024:.0f} KB)")
+    print(f"  Wrote {out_path} ({out_path.stat().st_size / 1024:.0f} KB)")
 
 
 def print_summary():
-    """Print row counts for all CSVs."""
-    print("\n" + "=" * 60)
-    print("DATA SUMMARY")
-    print("=" * 60)
+    print("\nData summary:")
     total = 0
     csv_files = sorted(CLEAN_DIR.glob("*.csv"))
     for f in csv_files:
@@ -273,23 +243,17 @@ def print_summary():
         total += count
         print(f"  {f.name:40s} {count:>6} rows")
     print(f"  {'TOTAL':40s} {total:>6} rows")
-    n_tables = len(csv_files)
-    print(f"  {'AVERAGE per table':40s} {total // n_tables:>6} rows")
-    print("=" * 60)
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("CineVerse ETL - Step 4: Generate SQL Load Scripts")
-    print("=" * 60)
+    print("Generating SQL load scripts\n")
 
     generate_sql_load_script()
     generate_insert_sql()
     print_summary()
 
     print("\nNext steps:")
-    print("  1. Create the database: createdb -U postgres cineverse")
-    print("  2. Create tables: psql -U postgres -d cineverse -f sql/01_create_tables.sql")
-    print("  3. Load data (option A - COPY): cd project_root && psql -U postgres -d cineverse -f sql/02_load_data.sql")
-    print("  4. Load data (option B - INSERT): psql -U postgres -d cineverse -f sql/02_insert_data.sql")
-    print("  5. Run queries: psql -U postgres -d cineverse -f sql/03_complex_queries.sql")
+    print("  1. createdb -U postgres cineverse")
+    print("  2. psql -U postgres -d cineverse -f sql/01_create_tables.sql")
+    print("  3. psql -U postgres -d cineverse -f sql/02_load_data.sql  (or 02_insert_data.sql)")
+    print("  4. psql -U postgres -d cineverse -f sql/03_complex_queries.sql")

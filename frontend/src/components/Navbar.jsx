@@ -34,18 +34,15 @@ export default function Navbar() {
     }
   }, [location.pathname])
 
-  // Hide navbar on login page
   if (location.pathname === '/') return null
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#141414]/95 backdrop-blur-sm border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
         <Link to="/home" className="text-2xl font-bold tracking-wide text-[#e50914] shrink-0">
           CineVerse
         </Link>
 
-        {/* Desktop nav links */}
         <div className="hidden lg:flex items-center gap-1 ml-8">
           {navLinks.map(({ to, label }) => (
             <Link
@@ -62,7 +59,6 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right side: user display */}
         <div className="flex items-center gap-4 ml-auto pl-4">
           {user ? (
             <div className="flex items-center gap-3">
@@ -90,7 +86,6 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Mobile menu button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="lg:hidden text-gray-400 hover:text-white p-1"
@@ -107,7 +102,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {menuOpen && (
         <div className="lg:hidden bg-[#1a1a1a] border-t border-white/10 px-4 py-2">
           {navLinks.map(({ to, label }) => (

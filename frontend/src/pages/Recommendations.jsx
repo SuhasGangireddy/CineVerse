@@ -80,7 +80,6 @@ export default function Recommendations() {
       <h1 className="text-4xl font-bold text-white mb-1">Recommendation Lab</h1>
       <p className="text-gray-400 text-lg mb-8">What are you in the mood for?</p>
 
-      {/* Mood Tags */}
       <section className="mb-8">
         <h2 className="text-xl font-semibold text-white mb-3">Select Mood Tags</h2>
         <div className="flex flex-wrap gap-2">
@@ -102,9 +101,7 @@ export default function Recommendations() {
         </div>
       </section>
 
-      {/* Filters */}
       <section className="mb-8 flex flex-wrap gap-6 items-end">
-        {/* Min Rating Slider */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-300">
             Min Rating: <span className="text-white font-bold">{minRating}</span>
@@ -120,7 +117,6 @@ export default function Recommendations() {
           />
         </div>
 
-        {/* Platform Dropdown */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-300">Platform</label>
           <select
@@ -142,7 +138,6 @@ export default function Recommendations() {
           </select>
         </div>
 
-        {/* Generate Button */}
         <button
           onClick={handleGenerate}
           disabled={loading}
@@ -161,7 +156,6 @@ export default function Recommendations() {
         </div>
       )}
 
-      {/* Results */}
       {generated && results.length === 0 && !loading && (
         <p className="text-gray-500">No recommendations found. Try adjusting your filters.</p>
       )}
@@ -175,7 +169,6 @@ export default function Recommendations() {
             {results.map((movie) => (
               <div key={movie.movie_id || movie.title} className="flex flex-col">
                 <MovieCard movie={movie} />
-                {/* Explanation Box */}
                 <div
                   className="mt-2 p-3 rounded-b-lg text-sm"
                   style={{ background: "#2a2a2a", borderLeft: "3px solid #e50914" }}
