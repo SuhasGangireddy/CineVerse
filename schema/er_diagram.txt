@@ -1,0 +1,144 @@
+================================================================================
+CineVerse - Entity-Relationship Diagram (Text-Based)
+ISE 503: Data Management - Spring 2026
+================================================================================
+
+                            ┌─────────────────┐
+                            │    RoleType      │
+                            │─────────────────│
+                            │ role_type_id PK  │
+                            │ role_name        │
+                            └────────┬────────┘
+                                     │ 1
+                                     │
+                                     │ M
+┌──────────────┐    M   ┌────────────────────┐   M    ┌──────────────┐
+│   Person     │───────│   MovieCredit       │───────│    Movie      │
+│──────────────│       │────────────────────│        │──────────────│
+│ person_id PK │       │ credit_id PK       │        │ movie_id PK  │
+│ imdb_person_id│      │ movie_id FK         │        │ imdb_id UK   │
+│ name         │       │ person_id FK        │        │ tmdb_id      │
+│ birth_year   │       │ role_type_id FK     │        │ title        │
+│ death_year   │       │ character_name      │        │ release_year │
+│ primary_prof │       │ billing_order       │        │ runtime_min  │
+└──────────────┘       └────────────────────┘        │ language     │
+                                                      │ country      │
+                                                      │ plot         │
+       ┌──────────────────────────────────────────────│ budget       │
+       │                    │              │          │ revenue      │
+       │                    │              │          │ imdb_rating  │
+       │                    │              │          │ imdb_votes   │
+       │                    │              │          │ genres_raw   │
+       ▼ M                  ▼ M            ▼ M        └──────┬───────┘
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│ MovieGenre   │  │MovieDistrib  │  │MovieProdComp │        │
+│──────────────│  │──────────────│  │──────────────│        │
+│ movie_id FK  │  │ movie_id FK  │  │ movie_id FK  │        │
+│ genre_id FK  │  │ distrib_id FK│  │ company_id FK│        │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘        │
+       │ M               │ M               │ M              │
+       ▼ 1               ▼ 1               ▼ 1              │
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│   Genre      │  │ Distributor  │  │ProdCompany   │        │
+│──────────────│  │──────────────│  │──────────────│        │
+│ genre_id PK  │  │ distrib_id PK│  │ company_id PK│        │
+│ genre_name   │  │ name         │  │ name         │        │
+└──────────────┘  │ address      │  │ country      │        │
+                  │ country      │  │ founded_year │        │
+                  └──────────────┘  └──────────────┘        │
+                                                             │
+    ┌────────────────────────────────────────────────────────┘
+    │                    │                │
+    ▼ M                  ▼ M              ▼ M
+┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
+│ UserRating   │  │ExternalRating│  │ MovieTagRelevance│
+│──────────────│  │──────────────│  │──────────────────│
+│ user_id FK PK│  │ movie_id FK PK│ │ movie_id FK PK   │
+│ movie_id FK PK│ │ source_name PK│ │ tag_id FK PK     │
+│ rating       │  │ score        │  │ relevance_score  │
+│ rating_date  │  │ max_score    │  └────────┬─────────┘
+└──────┬───────┘  │ vote_count   │           │ M
+       │ M        └──────────────┘           ▼ 1
+       ▼ 1                            ┌──────────────┐
+┌──────────────┐                      │    Tag       │
+│ UserProfile  │                      │──────────────│
+│──────────────│                      │ tag_id PK    │
+│ user_id PK   │                      │ tag_name     │
+│ username UK  │                      └──────────────┘
+│ email UK     │
+│ age_group    │
+│ pref_language│
+└──────┬───────┘
+       │ 1
+       ├──────────────────────────────────────────────┐
+       │              │              │                │
+       ▼ M            ▼ M            ▼ M              ▼ M
+┌──────────────┐ ┌────────────┐ ┌──────────────┐ ┌────────────────┐
+│   Review     │ │ Watchlist   │ │ RecommLog    │ │UserPrefTag     │
+│──────────────│ │────────────│ │──────────────│ │────────────────│
+│ review_id PK │ │ wl_id PK   │ │ rec_id PK    │ │ user_id FK PK  │
+│ user_id FK   │ │ user_id FK │ │ user_id FK   │ │ tag_id FK PK   │
+│ movie_id FK  │ │ name       │ │ movie_id FK  │ │ pref_weight    │
+│ review_text  │ └─────┬──────┘ │ score        │ └────────────────┘
+│ sentiment    │       │ 1      │ explanation  │
+│ review_date  │       ▼ M      └──────────────┘
+└──────────────┘ ┌────────────┐
+                 │WatchlistItem│
+                 │────────────│
+                 │ wl_id FK PK│
+                 │ movie_id FK│
+                 │ watched_st │
+                 └────────────┘
+
+┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│ MovieAvailability│     │    Award        │     │    MovieAward    │
+│──────────────────│     │─────────────────│     │──────────────────│
+│ movie_id FK PK   │     │ award_id PK     │     │ movie_award_id PK│
+│ platform_id FK PK│     │ award_name      │     │ movie_id FK      │
+│ region PK        │     │ category        │     │ award_id FK      │
+│ access_type PK   │     └────────┬────────┘     │ person_id FK     │
+│ start_date       │              │ 1            │ award_year       │
+│ end_date         │              └──────────────│ result           │
+└──────┬───────────┘                             └──────────────────┘
+       │ M
+       ▼ 1
+┌──────────────────┐
+│StreamingPlatform │
+│──────────────────│
+│ platform_id PK   │
+│ name             │
+│ country          │
+│ website_url      │
+└──────────────────┘
+
+┌──────────────┐   1    ┌─────────────────┐   M    ┌───────────────────┐
+│ WatchParty   │───────│WatchPartyMember  │───────│   UserProfile     │
+│──────────────│       │─────────────────│        │                   │
+│ party_id PK  │       │ party_id FK PK   │        └───────────────────┘
+│ host_user FK │       │ user_id FK PK    │
+│ party_name   │       └─────────────────┘
+│ planned_date │
+└──────┬───────┘
+       │ 1
+       ▼ M
+┌───────────────────┐
+│WatchPartySuggestion│
+│───────────────────│
+│ party_id FK PK     │
+│ movie_id FK PK     │
+│ group_score        │
+│ suggested_by FK    │
+└───────────────────┘
+
+
+================================================================================
+SUMMARY: 27 Tables, 6 Bridge Tables
+- Core: Movie, Person, RoleType, MovieCredit, Genre, MovieGenre, Distributor, MovieDistributor
+- Users: UserProfile, UserRating, Review, ExternalRating
+- Recommendations: Tag, MovieTagRelevance, UserPreferenceTag, RecommendationLog
+- Availability: StreamingPlatform, MovieAvailability
+- Awards: Award, MovieAward
+- Production: ProductionCompany, MovieProductionCompany
+- Watchlist: Watchlist, WatchlistItem
+- Group Watch: WatchParty, WatchPartyMember, WatchPartySuggestion
+================================================================================
